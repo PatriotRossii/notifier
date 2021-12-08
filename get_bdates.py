@@ -17,5 +17,6 @@ def get_bdates(api: vk.API, members: Set[int], delay: float = 0.4):
 		for user in response:
 			if "bdate" in user:
 				birth_dates.append(user["bdate"])
-
+		time.sleep(delay)
+		
 	return birth_dates
