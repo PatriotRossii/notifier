@@ -3,9 +3,15 @@ import datetime
 import schedule
 import random
 import vk
+import time
 
 from get_bdates import get_bdates, User
 from get_members import get_members
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
 
 DEFAULT_CONFIG_FILENAME = "config.ini"
@@ -48,26 +54,27 @@ def main():
 
 	anniversaries = []
 	owner_id = int(get_list_owner_id(config))
-	members = set()
+	members = {}
 
 	for group_id in GROUPS_IDS:
 		try:
-			members.update(get_members(user_api, group_id, "bdate"))
+			for user in get_members(user_api, group_id, "bdate,last_seen,sex"):
+				members[user["id"]] = user
 		except:
-			continue
-	members = list(members)
-
-	birth_dates = get_bdates(group_api, members)
-	for user in birth_dates:
-		user_bdate = ".".join(user.bdate.split(".")[:2])
+			pass
+	last_month = time.time() - (31 * 24 * 3600)
+	members = filter(lambda x: x['sex'] == 2 and ('last_seen' in x and x["last_seen"]["time"] > last_month) and 'bdate' in x, members.values())
+	for user in members:
+		user_bdate = ".".join(user["bdate"].split(".")[:2])
 		if user_bdate == current_date:
 			anniversaries.append(user)
 
-	output_message = ", ".join(
-		[f"[id{user.id}|{user.first_name} {user.last_name}]" for user in anniversaries]
-	)
-	if output_message:
-		group_api.messages.send(message=output_message, peer_id=owner_id, random_id=random.randint(0, 2**32))
+	for chunk in chunks(anniversaries, 75):
+		output_message = ", ".join(
+			[f"[id{user['id']}|{user['first_name']} {user['last_name']}]" for user in chunk]
+		)
+		if output_message:
+			group_api.messages.send(message=output_message, peer_id=owner_id, random_id=random.randint(0, 2**32))
 
 if __name__ == "__main__":
 	main()
